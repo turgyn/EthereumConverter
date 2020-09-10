@@ -1,26 +1,40 @@
-from django.shortcuts import render
+import requests
+
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 
+price = {}
 
-# Create your views here.
+def update_price(request):
+    APIURL = 'https://api.coingecko.com/api/v3/simple/price'
+    payload = {
+        'ids': 'ethereum,ethereum-classic',
+        'vs_currencies': 'usd'
+    }
+    response = requests.get(APIURL, params=payload).json()
+    global price
+    price['ethereum'] = response['ethereum']['usd']
+    price['ethereum_classic'] = response['ethereum-classic']['usd']
+    return redirect('home')
+
+
 def home(request):
+    if not price:
+        update_price(request)
     content = {
-        'amount': 1
+        'amount': 0,
+        'price': price
     }
     if request.method == 'GET':
-        return render(request, 'base.html')
+        return render(request, 'base.html', content)
     else:
         amount = request.POST['amount']
         if amount == '':
-            content['res'] = 'Please enter some value'
-            return render(request, 'base.html', content)
+            amount = 0
         amount = float(amount)
         content['amount'] = amount
-
-        type = request.POST['type']
-        if type == 'Ethereum':
-            rate = 351.05
-        else:
-            rate = 5.25
-        content['res'] = '{}: {} * {} = {} USD'.format(type, amount, rate, round(amount*rate, 4))
+        type_ = request.POST['type']
+        rate = price[type_.lower()]
+        content['text'] = '{}: {} * {} = $'.format(type_, amount, rate)
+        content['res'] = round(amount*rate, 4)
         return render(request, 'base.html', content)
